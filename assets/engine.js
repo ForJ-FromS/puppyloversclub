@@ -287,7 +287,7 @@ function newId(){ return Date.now().toString(36); }
 function bodyToHTML(text){
   return text.split(/\n{2,}/).map(p=>'<p>'+esc(p).replace(/\n/g,'<br>')+'</p>').join('\n');
 }
-async function publishCore({title, cat, secret, pw, pinned, bodyHTML, srcName}){
+async function publishCore({title, cat, secret, pw, pinned, bodyHTML, srcName, raw}){
   if(!token.get()){ msg('먼저 [설정] 탭에서 토큰을 등록하세요.'); return; }
   if(!title){ msg('제목을 입력하세요.'); return; }
   if(secret && !pw){ msg('비밀글 비밀번호를 입력하세요.'); return; }
@@ -309,9 +309,13 @@ async function publishCore({title, cat, secret, pw, pinned, bodyHTML, srcName}){
     }catch(e){}
   }
   if(pinned) state.data.posts.forEach(p=>p.pinned=false);
+  const isRaw = raw!==undefined ? !!raw : !!(old && old.raw);
   const entry = {
     id, title, cat, date: old ? old.date : today(), secret:!!secret, pinned:!!pinned,
-    excerpt: secret ? '' : bodyHTML.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,80),
+    raw: isRaw,
+    excerpt: (secret || isRaw) ? '' :
+      bodyHTML.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'')
+              .replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,80),
     file:fname, src: srcName || (old && old.src) || ''
   };
   if(old) state.data.posts = state.data.posts.map(x=>x.id===id ? entry : x);
@@ -340,7 +344,7 @@ async function publishLog(){
   await publishCore({
     title: $('#pl-log-title').value.trim() || f.name.replace(/\.[^.]+$/,''),
     cat: $('#pl-log-cat').value, secret, pw:$('#pl-log-pw').value, pinned:false,
-    bodyHTML:text, srcName:f.name
+    bodyHTML:text, srcName:f.name, raw:true
   }).catch(e=>msg('오류: '+e.message));
 }
 async function publishImage(){
@@ -410,6 +414,19 @@ async function deletePost(){
     location.href = './';
   }catch(e){ alert('오류: '+e.message); }
 }
+function mountFrame(container, {src, srcdoc}){
+  if(!container) return;
+  const fr = document.createElement('iframe');
+  fr.style.cssText = 'width:100%;border:0;min-height:70vh;display:block;border-radius:10px;background:transparent';
+  const fit = ()=>{ try{
+    const d = fr.contentWindow.document;
+    fr.style.height = Math.max(d.documentElement.scrollHeight, d.body ? d.body.scrollHeight : 0) + 24 + 'px';
+  }catch(e){} };
+  fr.addEventListener('load', ()=>{ fit(); setTimeout(fit, 400); setTimeout(fit, 1500); });
+  if(src) fr.src = src; else fr.srcdoc = srcdoc;
+  container.appendChild(fr);
+}
+
 async function initPostPage(){
   const m = location.search.match(/[?&]p=([^&]+)/);
   const id = m ? decodeURIComponent(m[1]) : null;
@@ -426,13 +443,25 @@ async function initPostPage(){
   document.title = p.title;
   if(meta) meta.textContent = p.cat+' · '+p.date+(p.secret?' · SECRET':'');
   const del=$('#pp-del'); if(del && !token.get()) del.style.display='none';
-  const ed=$('#pp-edit'); if(ed && !token.get()) ed.style.display='none';
+  const ed=$('#pp-edit'); if(ed && (!token.get() || p.raw || p.src)) ed.style.display='none';
+  const isRaw = !!(p.raw || p.src);   // 업로드된 로그 = 자체 디자인을 가진 완성 문서
   try{
+    if(isRaw && !p.secret){
+      curBody = null;
+      if(body) body.innerHTML = '';
+      mountFrame(body, {src: p.file+'?t='+Date.now()});
+      return;
+    }
     const html = await loadPostBody(p);
     curBody = html;
-    if(body) body.innerHTML = html===null
-      ? '<p>비밀글입니다. 새로고침하면 비밀번호를 다시 입력할 수 있어요.</p>'
-      : html;
+    if(html===null){
+      if(body) body.innerHTML = '<p>비밀글입니다. 새로고침하면 비밀번호를 다시 입력할 수 있어요.</p>';
+      return;
+    }
+    if(isRaw){
+      if(body) body.innerHTML = '';
+      mountFrame(body, {srcdoc: html});
+    } else if(body) body.innerHTML = html;
   }catch(e){
     if(body) body.innerHTML = '<p>글을 불러오지 못했어요. 방금 발행한 글이라면 1~2분 뒤 새로고침해 주세요.</p>';
   }

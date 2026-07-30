@@ -113,8 +113,21 @@ async function putLarge(path, contentB64, message){
     }
   }
 }
+/* 대용량 업로드 후 파일이 진짜 저장됐는지 확인 — 실패면 목록에 추가하지 않음(유령 방지) */
+async function putLargeVerified(path, contentB64, message){
+  for(let k=0; k<2; k++){
+    await putLarge(path, contentB64, message);
+    for(let c=0; c<3; c++){
+      await new Promise(res=>setTimeout(res, 1200));
+      const ok = await fetch('https://raw.githubusercontent.com/'+C.owner+'/'+C.repo+'/'+C.branch+'/'+path+'?t='+Date.now())
+        .then(r=>r.ok).catch(()=>false);
+      if(ok) return {ok:true};
+    }
+  }
+  throw new Error('업로드가 저장소에 확인되지 않아 중단했어요 — 목록에는 추가하지 않았으니 다시 시도해 주세요');
+}
 async function putFile(path, contentB64, msg){
-  if(contentB64.length > 900000) return putLarge(path, contentB64, msg); // ~0.7MB 이상은 화물 통로
+  if(contentB64.length > 900000) return putLargeVerified(path, contentB64, msg); // ~0.7MB 이상은 화물 통로
   let lastStatus = 0;
   for(let i=0; i<3; i++){
     const cur = await gh(path, {method:'GET'}).catch(()=>null);
@@ -130,7 +143,7 @@ async function putFile(path, contentB64, msg){
     if(r.status!==409) throw new Error('업로드 실패 ('+r.status+')');
     await new Promise(res=>setTimeout(res, 900*(i+1)));
   }
-  return putLarge(path, contentB64, msg);  // 일반 통로가 계속 막히면 화물 통로로 폴백
+  return putLargeVerified(path, contentB64, msg);  // 일반 통로가 계속 막히면 화물 통로로 폴백
 }
 const P = p => C.base + '/' + p; // 저장소 내 경로
 

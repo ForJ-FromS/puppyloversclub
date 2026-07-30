@@ -85,6 +85,7 @@ async function saveData(msg){
 function posts(){ return state.data.posts.slice().sort((a,b)=> b.id.localeCompare(a.id)); }
 function render(){
   const listEl = $('#pl-list'), pinEl = $('#pl-pinned');
+  if(!listEl) return;
   let items = posts();
   if(state.view!=='recent' && state.view!=='all') items = items.filter(p=>p.cat===state.view);
   if(state.q) items = items.filter(p=>p.title.toLowerCase().includes(state.q));
@@ -119,32 +120,21 @@ function render(){
 }
 
 /* ---------- 뷰어 ---------- */
-async function openPost(id){
-  const p = state.data.posts.find(x=>x.id===id); if(!p) return;
-  let body;
-  try{
-    const r = await fetch(p.file+'?t='+Date.now());
-    if(!r.ok) throw 0;
-    const raw = await r.text();
-    if(p.secret){
-      const pw = prompt('비밀번호를 입력하세요');
-      if(pw===null) return;
-      try{ body = await decrypt(pw, raw); }
-      catch(e){ alert('비밀번호가 맞지 않습니다.'); return; }
-    } else body = raw;
-  }catch(e){ alert('글을 불러오지 못했어요.\n방금 발행한 글이라면 1~2분 뒤 새로고침해 주세요.'); return; }
-  state.current = p.id;
-  history.replaceState(null,'',location.pathname+'#p='+encodeURIComponent(p.id));
-  $('#pl-viewer .pl-v-title').textContent = p.title;
-  $('#pl-viewer .pl-v-meta').textContent  = p.cat+' · '+p.date;
-  $('#pl-viewer .pl-v-body').innerHTML    = body;
-  const del = $('#pl-del'); if(del) del.style.display = token.get() ? '' : 'none';
-  $('#pl-viewer').classList.add('show');
-}
-function closeViewer(){
-  $('#pl-viewer').classList.remove('show');
-  state.current = null;
-  history.replaceState(null,'',location.pathname);
+/* ---------- 글 열기: 전용 페이지로 이동 ---------- */
+function openPost(id){ location.href = 'post.html?p='+encodeURIComponent(id); }
+function closeViewer(){ const v=$('#pl-viewer'); if(v) v.classList.remove('show'); }
+
+async function loadPostBody(p){
+  const r = await fetch(p.file+'?t='+Date.now());
+  if(!r.ok) throw new Error('nf');
+  const raw = await r.text();
+  if(p.secret){
+    const pw = prompt('비밀번호를 입력하세요');
+    if(pw===null) return null;
+    try{ return await decrypt(pw, raw); }
+    catch(e){ alert('비밀번호가 맞지 않습니다.'); return null; }
+  }
+  return raw;
 }
 
 /* ---------- 관리(글쓰기) 패널 ---------- */
@@ -308,19 +298,18 @@ async function publishImage(){
 }
 function saveToken(){ token.set($('#pl-token').value.trim()); msg('토큰 저장 완료. 이제 발행할 수 있어요.'); }
 
-/* ---------- 링크 복사 · 삭제 ---------- */
+/* ---------- 글 페이지(post.html) ---------- */
+let curPost = null;
 function copyLink(){
-  if(!state.current) return;
-  const url = location.origin+location.pathname+'#p='+encodeURIComponent(state.current);
+  const url = location.href;
   const done = ()=>alert('링크를 복사했어요!\n'+url);
   if(navigator.clipboard) navigator.clipboard.writeText(url).then(done)
     .catch(()=>prompt('이 링크를 복사하세요', url));
   else prompt('이 링크를 복사하세요', url);
 }
 async function deletePost(){
-  if(!state.current) return;
+  const p = curPost; if(!p) return;
   if(!token.get()){ alert('삭제하려면 ✎ → 설정에서 토큰을 먼저 등록하세요.'); return; }
-  const p = state.data.posts.find(x=>x.id===state.current); if(!p) return;
   if(!confirm('「'+p.title+'」 글을 삭제할까요? 되돌릴 수 없어요.')) return;
   try{
     const cur = await gh(P(p.file), {method:'GET'}).catch(()=>null);
@@ -334,9 +323,34 @@ async function deletePost(){
     }
     state.data.posts = state.data.posts.filter(x=>x.id!==p.id);
     await saveData('index: delete '+p.title);
-    closeViewer(); render();
-    alert('삭제했어요. 사이트 반영까지 30초~1분!');
+    alert('삭제했어요. 목록으로 돌아갈게요. (사이트 반영까지 30초~1분)');
+    location.href = './';
   }catch(e){ alert('오류: '+e.message); }
+}
+async function initPostPage(){
+  const m = location.search.match(/[?&]p=([^&]+)/);
+  const id = m ? decodeURIComponent(m[1]) : null;
+  const t=$('#pp-title'), meta=$('#pp-meta'), body=$('#pp-body');
+  await loadData().catch(()=>{ state.data={posts:[],gallery:[]}; });
+  const p = id ? state.data.posts.find(x=>x.id===id) : null;
+  if(!p){
+    if(t) t.textContent='글을 찾을 수 없어요';
+    if(body) body.innerHTML='<p>삭제되었거나 주소가 잘못되었어요.</p>';
+    return;
+  }
+  curPost = p;
+  if(t) t.textContent = p.title;
+  document.title = p.title;
+  if(meta) meta.textContent = p.cat+' · '+p.date+(p.secret?' · SECRET':'');
+  const del=$('#pp-del'); if(del && !token.get()) del.style.display='none';
+  try{
+    const html = await loadPostBody(p);
+    if(body) body.innerHTML = html===null
+      ? '<p>비밀글입니다. 새로고침하면 비밀번호를 다시 입력할 수 있어요.</p>'
+      : html;
+  }catch(e){
+    if(body) body.innerHTML = '<p>글을 불러오지 못했어요. 방금 발행한 글이라면 1~2분 뒤 새로고침해 주세요.</p>';
+  }
 }
 
 /* ---------- 초기화 ---------- */
@@ -364,9 +378,10 @@ function togglePanel(){ $('#pl-panel').classList.toggle('show'); }
 window.PL = { openPost, closeViewer, togglePanel, publish, publishLog, publishImage, saveToken, copyLink, deletePost };
 document.addEventListener('DOMContentLoaded', async ()=>{
   bind();
+  if(window.PL_PAGE==='post'){ initPostPage(); return; }
   await loadData().catch(()=>{ state.data={posts:[],gallery:[]}; });
   render();
   const m = location.hash.match(/^#p=(.+)$/);
-  if(m) openPost(decodeURIComponent(m[1]));
+  if(m) location.replace('post.html?p='+encodeURIComponent(m[1]));
 });
 })();

@@ -10,7 +10,7 @@ const T = window.PL_TEMPLATES;       // {list(post), pinned(post), gallery(item)
 const $ = s => document.querySelector(s);
 const enc = new TextEncoder(), dec = new TextDecoder();
 
-const state = { data:null, view:'recent', q:'' };
+const state = { data:null, view:'recent', q:'', current:null };
 
 /* ---------- 유틸 ---------- */
 const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -123,20 +123,29 @@ async function openPost(id){
   const p = state.data.posts.find(x=>x.id===id); if(!p) return;
   let body;
   try{
-    const r = await fetch(p.file+'?t='+Date.now()); const raw = await r.text();
+    const r = await fetch(p.file+'?t='+Date.now());
+    if(!r.ok) throw 0;
+    const raw = await r.text();
     if(p.secret){
       const pw = prompt('비밀번호를 입력하세요');
       if(pw===null) return;
       try{ body = await decrypt(pw, raw); }
       catch(e){ alert('비밀번호가 맞지 않습니다.'); return; }
     } else body = raw;
-  }catch(e){ alert('글을 불러오지 못했습니다.'); return; }
+  }catch(e){ alert('글을 불러오지 못했어요.\n방금 발행한 글이라면 1~2분 뒤 새로고침해 주세요.'); return; }
+  state.current = p.id;
+  history.replaceState(null,'',location.pathname+'#p='+encodeURIComponent(p.id));
   $('#pl-viewer .pl-v-title').textContent = p.title;
   $('#pl-viewer .pl-v-meta').textContent  = p.cat+' · '+p.date;
   $('#pl-viewer .pl-v-body').innerHTML    = body;
+  const del = $('#pl-del'); if(del) del.style.display = token.get() ? '' : 'none';
   $('#pl-viewer').classList.add('show');
 }
-function closeViewer(){ $('#pl-viewer').classList.remove('show'); }
+function closeViewer(){
+  $('#pl-viewer').classList.remove('show');
+  state.current = null;
+  history.replaceState(null,'',location.pathname);
+}
 
 /* ---------- 관리(글쓰기) 패널 ---------- */
 function adminHTML(){ return `
@@ -144,6 +153,10 @@ function adminHTML(){ return `
   <button class="pl-x" onclick="PL.closeViewer()">✕</button>
   <p class="pl-v-meta"></p><h2 class="pl-v-title"></h2>
   <div class="pl-v-body"></div>
+  <div class="pl-v-actions">
+    <button onclick="PL.copyLink()">🔗 링크 복사</button>
+    <button id="pl-del" onclick="PL.deletePost()">🗑 삭제</button>
+  </div>
 </div></div>
 
 <button id="pl-pen" title="글쓰기" onclick="PL.togglePanel()">✎</button>
@@ -229,7 +242,11 @@ function adminCSS(){ return `
 .pl-v-meta{font-size:11px;opacity:.6;letter-spacing:.08em}
 .pl-v-title{margin:4px 0 14px;font-size:19px}
 .pl-v-body{font-size:14px;line-height:2;white-space:normal}
-.pl-v-body p{margin-bottom:1em}`;}
+.pl-v-body p{margin-bottom:1em}
+.pl-v-actions{margin-top:20px;display:flex;gap:8px;border-top:1px solid var(--pl-line,#ddd);padding-top:14px}
+.pl-v-actions button{border:1px solid var(--pl-line,#ddd);background:none;color:inherit;
+  border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit;opacity:.85}
+.pl-v-actions button:hover{opacity:1;border-color:var(--pl-accent,#555)}`;}
 
 function msg(t){ $('#pl-msg').textContent = t; }
 
@@ -291,6 +308,37 @@ async function publishImage(){
 }
 function saveToken(){ token.set($('#pl-token').value.trim()); msg('토큰 저장 완료. 이제 발행할 수 있어요.'); }
 
+/* ---------- 링크 복사 · 삭제 ---------- */
+function copyLink(){
+  if(!state.current) return;
+  const url = location.origin+location.pathname+'#p='+encodeURIComponent(state.current);
+  const done = ()=>alert('링크를 복사했어요!\n'+url);
+  if(navigator.clipboard) navigator.clipboard.writeText(url).then(done)
+    .catch(()=>prompt('이 링크를 복사하세요', url));
+  else prompt('이 링크를 복사하세요', url);
+}
+async function deletePost(){
+  if(!state.current) return;
+  if(!token.get()){ alert('삭제하려면 ✎ → 설정에서 토큰을 먼저 등록하세요.'); return; }
+  const p = state.data.posts.find(x=>x.id===state.current); if(!p) return;
+  if(!confirm('「'+p.title+'」 글을 삭제할까요? 되돌릴 수 없어요.')) return;
+  try{
+    const cur = await gh(P(p.file), {method:'GET'}).catch(()=>null);
+    if(cur && cur.sha){
+      const r = await fetch('https://api.github.com/repos/'+C.owner+'/'+C.repo+'/contents/'+P(p.file), {
+        method:'DELETE',
+        headers:{'Authorization':'Bearer '+token.get(),'Accept':'application/vnd.github+json'},
+        body:JSON.stringify({message:'delete: '+p.title, sha:cur.sha, branch:C.branch})
+      });
+      if(!r.ok) throw new Error('삭제 실패 ('+r.status+')');
+    }
+    state.data.posts = state.data.posts.filter(x=>x.id!==p.id);
+    await saveData('index: delete '+p.title);
+    closeViewer(); render();
+    alert('삭제했어요. 사이트 반영까지 30초~1분!');
+  }catch(e){ alert('오류: '+e.message); }
+}
+
 /* ---------- 초기화 ---------- */
 function bind(){
   document.body.insertAdjacentHTML('beforeend', adminHTML());
@@ -313,10 +361,12 @@ function bind(){
 }
 function togglePanel(){ $('#pl-panel').classList.toggle('show'); }
 
-window.PL = { openPost, closeViewer, togglePanel, publish, publishLog, publishImage, saveToken };
+window.PL = { openPost, closeViewer, togglePanel, publish, publishLog, publishImage, saveToken, copyLink, deletePost };
 document.addEventListener('DOMContentLoaded', async ()=>{
   bind();
   await loadData().catch(()=>{ state.data={posts:[],gallery:[]}; });
   render();
+  const m = location.hash.match(/^#p=(.+)$/);
+  if(m) openPost(decodeURIComponent(m[1]));
 });
 })();

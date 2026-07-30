@@ -358,7 +358,10 @@ function adminCSS(){ return `
 function msg(t){ $('#pl-msg').textContent = t; }
 
 /* ---------- 발행 ---------- */
-function newId(){ return Date.now().toString(36); }
+function newId(){
+  const nums = state.data.posts.map(p=>parseInt(p.id,10)).filter(n=>!isNaN(n));
+  return String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4,'0');
+}
 function bodyToHTML(text){
   return text.split(/\n{2,}/).map(p=>'<p>'+esc(p).replace(/\n/g,'<br>')+'</p>').join('\n');
 }
@@ -460,7 +463,10 @@ function editPost(){
   if(p.secret) msg('비밀글 수정: 저장할 때 비밀번호를 다시 입력해 주세요.');
 }
 function copyLink(){
-  const url = location.href;
+  const p = curPost;
+  const url = p
+    ? location.origin + location.pathname.replace(/post\.html.*$/,'') + p.id
+    : location.href;
   const done = ()=>alert('링크를 복사했어요!\n'+url);
   if(navigator.clipboard) navigator.clipboard.writeText(url).then(done)
     .catch(()=>prompt('이 링크를 복사하세요', url));
@@ -506,6 +512,7 @@ async function initPostPage(){
     return;
   }
   curPost = p;
+  history.replaceState(null,'', location.pathname.replace(/post\.html.*$/, p.id));
   if(t) t.textContent = p.title;
   document.title = p.title;
   if(meta) meta.textContent = p.cat+' · '+p.date+(p.secret?' · SECRET':'');

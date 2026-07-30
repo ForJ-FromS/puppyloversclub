@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Puppylovers Club</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+KR:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:#131316;
+    background-image:
+      radial-gradient(ellipse 75% 55% at 50% 25%, rgba(255,255,255,.045), transparent 70%);
+    color:#C9CAD1;
+    font-family:'Inter','Noto Sans KR',sans-serif;
+    min-height:100vh;overflow-x:hidden;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:56px 20px 60px;
+  }
+  a{text-decoration:none;color:inherit}
+
+  header{text-align:center;margin-bottom:56px}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:9px;
+    letter-spacing:.5em;text-indent:.5em;color:#6E7078}
+  h1{
+    font-family:'Inter',sans-serif;font-weight:600;
+    font-size:clamp(20px,4vw,27px);color:#EDEEF2;
+    letter-spacing:.34em;text-indent:.34em;margin-top:16px;
+  }
+  h1 small{display:block;font-family:'IBM Plex Mono',monospace;font-weight:400;
+    font-size:8.5px;letter-spacing:.35em;color:#6E7078;margin-top:10px;
+    text-indent:.35em}
+  .guide{margin-top:14px;font-size:12px;font-weight:300;color:#8B8D96;
+    letter-spacing:.06em}
+
+  /* ── 파일 두 개 ── */
+  .desk{display:flex;gap:clamp(28px,6vw,56px);flex-wrap:wrap;justify-content:center;align-items:stretch}
+
+  .file{
+    position:relative;width:clamp(230px,34vw,280px);
+    cursor:pointer;display:flex;flex-direction:column;
+    transition:transform .35s ease;
+  }
+  .file:hover{transform:translateY(-8px)}
+  .file:focus-visible{outline:2px solid #9DB6DC;outline-offset:6px}
+
+  .tab{
+    display:inline-block;
+    font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.28em;
+    padding:7px 18px 6px;margin-left:18px;
+    border:1px solid rgba(255,255,255,.14);border-bottom:none;
+    border-radius:3px 3px 0 0;position:relative;top:1px;
+    color:#8B8D96;background:rgba(255,255,255,.02);
+  }
+  .sheet{
+    flex:1;display:flex;flex-direction:column;
+    border:1px solid rgba(255,255,255,.14);border-radius:2px 6px 6px 6px;
+    padding:34px 30px 28px;position:relative;overflow:hidden;
+    background:linear-gradient(165deg, rgba(255,255,255,.045) 0%, rgba(255,255,255,.015) 100%);
+    transition:border-color .35s ease, box-shadow .35s ease;
+  }
+  .file.blue:hover .sheet{border-color:rgba(140,168,214,.6);
+    box-shadow:0 18px 40px -22px rgba(96,138,204,.5)}
+  .file.nine:hover .sheet{border-color:rgba(220,222,230,.45);
+    box-shadow:0 18px 40px -22px rgba(214,217,224,.35)}
+
+  .index-strip{position:absolute;left:0;top:0;bottom:0;width:3px}
+  .file.blue .index-strip{background:linear-gradient(#5F86C6,#33507E)}
+  .file.nine .index-strip{background:linear-gradient(#D6D9E0,#6E7280)}
+
+  .no{font-family:'IBM Plex Mono',monospace;font-size:8.5px;
+    letter-spacing:.3em;color:#6E7078}
+  .name{
+    font-family:'Inter','Noto Sans KR',sans-serif;font-weight:500;
+    font-size:clamp(16.5px,2.4vw,19px);color:#EDEEF2;
+    margin-top:14px;margin-bottom:18px;line-height:1.45;letter-spacing:.02em;
+  }
+  .file.blue:hover .name{color:#B9CFEE}
+  .file.nine:hover .name{color:#E6E8EE}
+  .sub{font-family:'IBM Plex Mono',monospace;font-size:8px;
+    letter-spacing:.3em;color:#8B8D96;margin-top:-8px;margin-bottom:18px}
+
+  .open-hint{
+    margin-top:auto;padding-top:24px;display:flex;justify-content:space-between;align-items:baseline;
+    border-top:1px solid rgba(255,255,255,.1);
+    font-family:'IBM Plex Mono',monospace;font-size:8.5px;
+    letter-spacing:.25em;color:#6E7078;
+    transition:color .3s ease;
+  }
+  .open-hint .arrow{transition:transform .35s ease}
+  .file:hover .open-hint{color:#C9CAD1}
+  .file:hover .open-hint .arrow{transform:translateX(5px)}
+
+  /* ── 배너(LINK) 구역 ── */
+  .link-sec{margin-top:64px;width:min(640px,100%)}
+  .link-head{display:flex;justify-content:center;align-items:baseline;gap:12px;
+    margin-bottom:16px}
+  .link-head span{font-family:'IBM Plex Mono',monospace;font-size:9px;
+    letter-spacing:.4em;text-indent:.4em;color:#6E7078}
+  .banners{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+  .bn{width:200px;height:40px;border:1px dashed #55575F;border-radius:3px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'IBM Plex Mono',monospace;font-size:9px;
+    letter-spacing:.2em;color:#6E7078}
+  .bn.mine{border-style:solid;border-color:#9DA0AA;color:#C9CAD1}
+  .link-note{margin-top:12px;text-align:center;font-size:11px;
+    font-weight:300;color:#6E7078;font-family:'Noto Sans KR',sans-serif}
+
+  footer{margin-top:56px;font-family:'IBM Plex Mono',monospace;
+    font-size:8.5px;letter-spacing:.35em;color:#5B5D66}
+
+  /* ── 이동 연출 ── */
+  .veil{position:fixed;inset:0;opacity:0;pointer-events:none;
+    transition:opacity .55s ease;z-index:10;
+    display:flex;align-items:center;justify-content:center}
+  .veil.blue{background:linear-gradient(150deg,#20334F,#2C4064)}
+  .veil.nine{background:linear-gradient(150deg,#141417,#1E1E23)}
+  .veil.show{opacity:1}
+  .veil p{font-family:'IBM Plex Mono',monospace;font-size:9px;
+    letter-spacing:.4em;color:rgba(240,241,245,.7)}
+
+  @media (prefers-reduced-motion:reduce){
+    .file,.file:hover{transition:none;transform:none}
+    .open-hint .arrow{transition:none}
+    .veil{transition:none}
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <p class="eyebrow">PRIVATE ARCHIVE</p>
+    <h1>PUPPYLOVERS CLUB<small>puppylovers.club</small></h1>
+    <p class="guide">열람할 파일을 고르세요</p>
+  </header>
+
+  <div class="desk">
+
+    <a class="file blue" href="blue/" onclick="go(event,'blue')">
+      <span class="tab">FILE 01</span>
+      <div class="sheet">
+        <span class="index-strip"></span>
+        <p class="no">/BLUE/</p>
+        <p class="name">Unpainted Shades of Blue</p>
+        <div class="open-hint"><span>OPEN</span><span class="arrow">→</span></div>
+      </div>
+    </a>
+
+    <a class="file nine" href="nine/" onclick="go(event,'nine')">
+      <span class="tab">FILE 02</span>
+      <div class="sheet">
+        <span class="index-strip"></span>
+        <p class="no">/NINE/</p>
+        <p class="name">Frost Bird</p>
+        <p class="sub">90.0 MHz</p>
+        <div class="open-hint"><span>OPEN</span><span class="arrow">→</span></div>
+      </div>
+    </a>
+
+  </div>
+
+  <div class="link-sec">
+    <div class="link-head"><span>LINK</span></div>
+    <div class="banners">
+      <div class="bn mine">MY BANNER · 200×40</div>
+      <div class="bn">BANNER</div>
+      <div class="bn">BANNER</div>
+    </div>
+    <p class="link-note">배너를 눌러 이웃 홈으로 이동합니다. 내 배너는 자유롭게 가져가세요.</p>
+  </div>
+
+  <footer>ⓒ FORJ-FROMS · PUPPYLOVERS.CLUB</footer>
+
+  <div class="veil" id="veil"><p id="veil-msg"></p></div>
+
+<script>
+  function go(e,key){
+    e.preventDefault();
+    const v=document.getElementById('veil');
+    v.classList.remove('blue','nine');
+    v.classList.add(key,'show');
+    document.getElementById('veil-msg').textContent =
+      key==='blue' ? 'ENTERING — /BLUE/' : 'ENTERING — /NINE/';
+    setTimeout(()=>{ location.href = key + '/'; }, 650);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frost Bird</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0C0D11;
+    --card:#14161C;
+    --card-2:#101218;
+    --line:#22252E;
+    --text:#C9CDD7;
+    --title:#EBEDF2;
+    --soft:#818899;
+    --faint:#565C6A;
+    --silver:#DDE0E8;
+    --lamp:#E2AF58;
+    --rec:#CE6B5B;
+    /* 엔진(뷰어·글쓰기 패널) 색 */
+    --pl-panel-bg:#171A21;
+    --pl-panel-text:#D5D9E0;
+    --pl-line:#2B2F3A;
+    --pl-accent:#C9CDD8;
+    --pl-accent-text:#14161C;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:var(--bg);
+    background-image:
+      radial-gradient(ellipse 80% 40% at 50% -5%, rgba(140,150,175,.07), transparent 70%);
+    color:var(--text);
+    font-family:'IBM Plex Sans KR',sans-serif;font-weight:300;
+    line-height:1.85;min-height:100vh;
+    padding:48px 18px 64px;
+  }
+  a{text-decoration:none;color:inherit}
+  input{font-family:inherit}
+  .wrap{max-width:860px;margin:0 auto}
+
+  /* ═══ 수신기 마스트헤드 ═══ */
+  .masthead{
+    border:1px solid var(--line);border-radius:14px;
+    background:linear-gradient(175deg,#171A21 0%,#111319 100%);
+    padding:24px 28px 0;overflow:hidden;position:relative;
+  }
+  .masthead::before{content:'';position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px)}
+  .mh-top{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px}
+  .station{font-family:'IBM Plex Mono',monospace}
+  .station .ch{font-size:10px;letter-spacing:.4em;color:var(--soft)}
+  .station .name{font-size:clamp(22px,4vw,30px);font-weight:600;
+    letter-spacing:.14em;color:var(--silver);line-height:1.3}
+  .station .sub{font-size:9px;letter-spacing:.3em;color:var(--faint);margin-top:2px}
+  .lamps{display:flex;gap:14px;align-items:center;padding-bottom:6px}
+  .onair{display:inline-flex;align-items:center;gap:7px;
+    font-family:'IBM Plex Mono',monospace;font-size:9px;
+    letter-spacing:.28em;color:var(--lamp)}
+  .onair i{width:5px;height:5px;border-radius:50%;background:var(--lamp);
+    animation:blink 1.8s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+  .rec{font-family:'IBM Plex Mono',monospace;font-size:9px;
+    letter-spacing:.28em;color:var(--rec)}
+
+  .ruler{position:relative;height:44px;margin-top:18px}
+  .ruler .ticks{position:absolute;inset:0 0 12px;
+    background:repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 5%)}
+  .ruler .ticks::after{content:'';position:absolute;inset:12px 0 0;
+    background:repeating-linear-gradient(90deg, rgba(129,136,153,.4) 0 1px, transparent 1px 1.25%)}
+  .ruler .needle{position:absolute;top:-6px;bottom:6px;left:23%;width:2px;
+    background:var(--silver);box-shadow:0 0 9px rgba(221,224,232,.7)}
+  .ruler .freq{position:absolute;right:0;bottom:14px;
+    font-family:'IBM Plex Mono',monospace;font-size:10px;
+    letter-spacing:.15em;color:var(--soft)}
+
+  /* ═══ 2단 ═══ */
+  .cols{display:grid;grid-template-columns:1fr 218px;gap:20px;margin-top:20px;
+    align-items:start}
+  @media(max-width:720px){.cols{grid-template-columns:1fr}}
+
+  .sec-head{display:flex;justify-content:space-between;align-items:baseline;
+    border-bottom:1px solid var(--line);padding-bottom:9px;margin-bottom:12px}
+  .sec-head h2{font-family:'IBM Plex Mono',monospace;font-size:10px;
+    font-weight:500;letter-spacing:.35em;color:var(--title)}
+  .sec-head .en{font-family:'IBM Plex Mono',monospace;font-size:8.5px;
+    letter-spacing:.3em;color:var(--faint)}
+
+  .now{
+    display:block;border:1px solid rgba(226,175,88,.4);border-radius:12px;
+    background:linear-gradient(180deg,rgba(226,175,88,.07),transparent 70%),var(--card);
+    padding:18px 20px;margin-bottom:12px;cursor:pointer;
+  }
+  .now .tag{font-family:'IBM Plex Mono',monospace;font-size:8px;
+    letter-spacing:.3em;color:var(--lamp)}
+  .now .t{margin-top:5px;font-size:15px;font-weight:600;color:var(--title)}
+  .now .ex{margin-top:3px;font-size:12.5px;color:var(--soft)}
+  .now .meta{margin-top:10px;font-family:'IBM Plex Mono',monospace;
+    font-size:9px;letter-spacing:.08em;color:var(--faint)}
+
+  #pl-list{list-style:none}
+  .log-row{
+    display:grid;grid-template-columns:56px 1fr auto;gap:14px;align-items:baseline;
+    padding:13px 6px;border-bottom:1px solid rgba(34,37,46,.7);cursor:pointer;
+    transition:background .2s;
+  }
+  .log-row:hover{background:rgba(221,224,232,.03)}
+  @media(max-width:520px){.log-row{grid-template-columns:48px 1fr auto;gap:10px}}
+  .log-row .time{font-family:'IBM Plex Mono',monospace;font-size:10px;
+    letter-spacing:.06em;color:var(--faint)}
+  .log-row .t{font-size:14px;font-weight:400;color:var(--text)}
+  .log-row:hover .t{color:var(--silver)}
+  .log-row .sig{font-family:'IBM Plex Mono',monospace;font-size:9px;
+    letter-spacing:.08em;color:var(--faint)}
+  .enc{
+    display:inline-block;vertical-align:1px;
+    font-family:'IBM Plex Mono',monospace;font-size:7px;
+    letter-spacing:.22em;text-indent:.22em;color:var(--lamp);
+    border:1px solid rgba(226,175,88,.35);border-radius:3px;
+    padding:1px 6px;margin-left:8px;
+  }
+  .more{display:block;text-align:center;margin-top:14px;cursor:pointer;
+    font-family:'IBM Plex Mono',monospace;font-size:9px;
+    letter-spacing:.3em;color:var(--soft)}
+  .more:hover{color:var(--silver)}
+
+  aside{display:flex;flex-direction:column;gap:14px}
+  .side{border:1px solid var(--line);border-radius:12px;
+    background:var(--card);padding:16px 18px}
+  .side .label{font-family:'IBM Plex Mono',monospace;font-size:8.5px;
+    letter-spacing:.35em;color:var(--faint);margin-bottom:10px}
+
+  .s-search{display:flex;align-items:center;gap:9px;
+    border:1px solid var(--line);border-radius:9px;
+    background:var(--card-2);padding:9px 13px}
+  .s-search .ic{color:var(--faint);font-size:12px}
+  .s-search input{border:none;background:none;outline:none;width:100%;
+    font-size:12px;color:var(--text)}
+  .s-search input::placeholder{color:var(--faint)}
+
+  .s-cate{list-style:none}
+  .s-cate a{display:flex;justify-content:space-between;align-items:baseline;
+    padding:6px 2px;font-size:12.5px;color:var(--text);cursor:pointer;
+    border-bottom:1px dashed rgba(34,37,46,.8)}
+  .s-cate li:last-child a{border-bottom:none}
+  .s-cate a:hover,.s-cate a.on{color:var(--silver)}
+  .s-cate .n{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--faint)}
+
+  .s-note{font-size:11.5px;color:var(--soft);line-height:1.8}
+  .s-note b{color:var(--lamp);font-weight:400;font-family:'IBM Plex Mono',monospace;
+    font-size:10px;letter-spacing:.1em}
+
+  /* ═══ 스틸 ═══ */
+  .strip-sec{margin-top:26px}
+  #pl-gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:520px){#pl-gallery{grid-template-columns:1fr}}
+  .frame{
+    position:relative;aspect-ratio:16/9;border-radius:8px;overflow:hidden;
+    background:linear-gradient(150deg,#191C24,#121419);
+    border:1px solid var(--line);display:block;
+  }
+  .frame img{width:100%;height:100%;object-fit:cover;display:block}
+  .frame::before,.frame::after{
+    content:'';position:absolute;left:0;right:0;height:5px;z-index:2;
+    background:repeating-linear-gradient(90deg,
+      transparent 0 7px, rgba(129,136,153,.28) 7px 12px);
+  }
+  .frame::before{top:3px}
+  .frame::after{bottom:3px}
+  .frame:hover{border-color:rgba(221,224,232,.35)}
+  .frame .gt{position:absolute;left:0;right:0;bottom:0;padding:14px 10px 8px;z-index:1;
+    font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.2em;color:var(--silver);
+    background:linear-gradient(transparent, rgba(10,12,16,.75))}
+
+  footer{margin-top:34px;display:flex;justify-content:space-between;
+    align-items:baseline;
+    font-family:'IBM Plex Mono',monospace;font-size:8.5px;
+    letter-spacing:.28em;color:var(--faint)}
+  footer a:hover{color:var(--silver)}
+
+  .pl-empty{font-size:12px;color:var(--faint);padding:10px 4px}
+
+  @media (prefers-reduced-motion:reduce){
+    .onair i{animation:none}
+    .log-row{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div class="mh-top">
+      <div class="station">
+        <p class="ch">PRIVATE STATION</p>
+        <h1 class="name">FROST BIRD</h1>
+        <p class="sub">PRIVATE BROADCAST · 90.0</p>
+      </div>
+      <div class="lamps">
+        <span class="onair"><i></i>ON AIR</span>
+        <span class="rec">● REC</span>
+      </div>
+    </div>
+    <div class="ruler">
+      <div class="ticks"></div>
+      <div class="needle"></div>
+      <span class="freq">90.0 MHz</span>
+    </div>
+  </div>
+
+  <div class="cols">
+
+    <main>
+      <div class="sec-head"><h2 id="pl-view-label">수신 기록</h2><span class="en">RECEIVED LOG</span></div>
+      <div id="pl-pinned"></div>
+      <ul id="pl-list"></ul>
+      <a class="more" data-cat="all">MORE SIGNALS →</a>
+    </main>
+
+    <aside>
+      <div class="side">
+        <p class="label">SEARCH</p>
+        <div class="s-search">
+          <span class="ic">⌕</span>
+          <input type="text" id="pl-search" placeholder="scan...">
+        </div>
+      </div>
+
+      <div class="side">
+        <p class="label">CHANNELS</p>
+        <ul class="s-cate">
+          <li><a data-cat="archive"><span>archive</span><span class="n" data-count="archive">0</span></a></li>
+          <li><a data-cat="ooc"><span>ooc</span><span class="n" data-count="ooc">0</span></a></li>
+          <li><a data-cat="all"><span>전체</span><span class="n" data-count="all">0</span></a></li>
+        </ul>
+      </div>
+
+      <div class="side">
+        <p class="label">STATUS</p>
+        <p class="s-note">신호 상태 <b>GOOD</b><br>마지막 수신 <span id="pl-last">—</span><br>보관 기록 <span data-count="all">0</span>건</p>
+      </div>
+    </aside>
+
+  </div>
+
+  <div class="strip-sec">
+    <div class="sec-head"><h2>스틸</h2><span class="en">STILLS</span></div>
+    <div id="pl-gallery"></div>
+  </div>
+
+  <footer>
+    <a href="../">← HOME</a>
+    <span>ⓒ FORJ-FROMS · /NINE/</span>
+  </footer>
+
+</div>
+
+<script>
+window.PL_CONFIG = {
+  owner:'forj-froms',
+  repo:'puppyloversclub',
+  branch:'main',
+  base:'nine'
+};
+window.PL_TEMPLATES = {
+  pinned: p => `
+    <a class="now" onclick="PL.openPost('${p.id}');return false">
+      <span class="tag">▶ NOW BROADCASTING</span>
+      <p class="t">${p.title}${p.secret?'<span class="enc">ENC</span>':''}</p>
+      ${p.excerpt?`<p class="ex">${p.excerpt}</p>`:''}
+      <p class="meta">${p.cat} · ${p.date}</p>
+    </a>`,
+  list: p => `
+    <li><a class="log-row" onclick="PL.openPost('${p.id}');return false">
+      <span class="time">${p.date.slice(5)}</span>
+      <span class="t">${p.title}${p.secret?'<span class="enc">ENC</span>':''}</span>
+      <span class="sig">${p.secret?'▂▄▆█':'▂▄▆_'}</span>
+    </a></li>`,
+  gallery: g => `
+    <a class="frame" href="${g.file}" target="_blank" rel="noopener">
+      <img src="${g.file}" alt="">
+      <span class="gt">${g.title||''}</span>
+    </a>`
+};
+</script>
+<script src="../assets/engine.js"></script>
+</body>
+</html>

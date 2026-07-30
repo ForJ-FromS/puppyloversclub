@@ -1,0 +1,15 @@
+{
+  "posts": [
+    {
+      "id": "0001",
+      "title": "프로필 문서",
+      "cat": "archive",
+      "date": "2026.07.30",
+      "secret": false,
+      "pinned": true,
+      "excerpt": "기본 설정과 관계 요약. 처음이라면 여기부터.",
+      "file": "posts/0001.html"
+    }
+  ],
+  "gallery": []
+}

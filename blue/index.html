@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unpainted Shades of Blue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --box:#FFFFFF;
+    --text:#34496A;
+    --title:#34496A;
+    --body:#657D9E;
+    --muted:#91A5BF;
+    --line:rgba(72,128,181,.15);
+    --accent:#327BC1;
+    --accent-soft:#EDF3FA;
+    --panel:rgba(255,255,255,.42);
+    --panel-line:rgba(255,255,255,.8);
+    /* 엔진(뷰어·글쓰기 패널) 색 */
+    --pl-panel-bg:#FFFFFF;
+    --pl-panel-text:#34496A;
+    --pl-line:rgba(72,128,181,.25);
+    --pl-accent:#327BC1;
+    --pl-accent-text:#FFFFFF;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    color:var(--text);
+    font-family:'Noto Sans KR',sans-serif;font-weight:400;
+    line-height:1.85;min-height:100vh;
+    padding:52px 16px 60px;
+    background:url("bg.jpg") center/cover no-repeat fixed;
+  }
+  a{text-decoration:none;color:inherit}
+  input{font-family:inherit}
+
+  .panel{
+    max-width:880px;margin:0 auto;
+    background:var(--panel);
+    border:1.5px solid var(--panel-line);
+    border-radius:24px;
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+    padding:26px;
+    box-shadow:0 26px 54px -34px rgba(24,52,96,.65);
+  }
+
+  .cols{
+    display:grid;gap:20px;align-items:start;
+    grid-template-columns:212px 1fr;
+    grid-template-areas:
+      "pf     main"
+      "search main"
+      "cate   main"
+      "side   main";
+  }
+  .pf-card{grid-area:pf}
+  .search-card{grid-area:search}
+  .cate-card{grid-area:cate}
+  aside{grid-area:side}
+  main{grid-area:main}
+
+  .box{
+    background:var(--box);border-radius:14px;
+    padding:18px 20px;
+    border:1px solid var(--line);
+    box-shadow:0 2px 8px -6px rgba(24,52,96,.25);
+  }
+
+  .pf-card{
+    position:relative;border-radius:14px;overflow:hidden;
+    border:1px solid var(--line);
+    aspect-ratio:4/5;
+    box-shadow:0 2px 8px -6px rgba(24,52,96,.3);
+  }
+  .pf-card img{position:absolute;inset:0;width:100%;height:100%;
+    object-fit:cover;object-position:center 20%}
+  .pf-cap{position:absolute;left:0;right:0;bottom:0;
+    padding:24px 13px 9px;
+    background:linear-gradient(transparent, rgba(18,38,68,.66))}
+  .pf-title{font-family:'Noto Sans KR',sans-serif;font-weight:500;
+    font-size:13.5px;letter-spacing:.04em;color:#fff;line-height:1.35;
+    text-shadow:0 1px 6px rgba(18,38,68,.7)}
+
+  .label{font-family:'IBM Plex Mono',monospace;font-size:8.5px;
+    letter-spacing:.35em;color:var(--muted);margin-bottom:10px}
+  .s-search{display:flex;align-items:center;gap:9px;
+    border:1px solid var(--line);border-radius:10px;
+    background:var(--accent-soft);padding:9px 13px}
+  .s-search .ic{color:#5F7699;font-size:12px}
+  .s-search input{border:none;background:none;outline:none;width:100%;
+    font-size:12px;color:var(--text)}
+  .s-search input::placeholder{color:var(--muted)}
+
+  .s-cate{list-style:none}
+  .s-cate a{display:flex;justify-content:space-between;align-items:baseline;
+    padding:6px 2px;font-size:13px;color:var(--text);cursor:pointer;
+    border-bottom:1px dashed rgba(72,128,181,.18)}
+  .s-cate li:last-child a{border-bottom:none}
+  .s-cate a:hover,.s-cate a.on{color:var(--accent)}
+  .s-cate .n{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--accent)}
+
+  aside{display:flex;flex-direction:column;gap:14px}
+  .tide-card p{font-size:11.5px;font-weight:300;color:var(--body);line-height:1.85}
+  .tide{display:inline-flex;align-items:center;gap:7px;
+    font-family:'IBM Plex Mono',monospace;font-size:9px;
+    letter-spacing:.25em;color:var(--accent)}
+  .tide i{width:5px;height:5px;border-radius:50%;background:var(--accent);
+    animation:bob 3.2s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+
+  main{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .sec-label{
+    font-family:'IBM Plex Mono',monospace;font-size:9.5px;
+    letter-spacing:.35em;color:var(--title);
+    padding:2px 6px 0;text-shadow:0 1px 4px rgba(255,255,255,.65)}
+  #pl-list{display:flex;flex-direction:column;gap:12px}
+
+  .post{display:block;cursor:pointer;transition:transform .18s ease}
+  .post:hover{transform:translateY(-2px)}
+  .post .t{font-size:14.5px;font-weight:500;color:var(--title)}
+  .post:hover .t{color:var(--accent)}
+  .post .ex{margin-top:4px;font-size:12.5px;font-weight:300;color:var(--body);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .post .meta{margin-top:9px;font-family:'IBM Plex Mono',monospace;
+    font-size:9.5px;letter-spacing:.06em;color:var(--muted);
+    display:flex;justify-content:space-between;align-items:baseline}
+
+  .post.pinned{
+    border:1.5px solid var(--accent);
+    background:linear-gradient(180deg,#FFFFFF 0%,var(--accent-soft) 140%)}
+  .pin-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .pin-tag{font-family:'IBM Plex Mono',monospace;font-size:8px;
+    letter-spacing:.3em;color:var(--accent)}
+
+  .secret{display:inline-block;vertical-align:1px;
+    font-family:'IBM Plex Mono',monospace;font-size:7.5px;
+    letter-spacing:.25em;text-indent:.25em;color:var(--accent);
+    background:var(--accent-soft);border-radius:4px;
+    padding:2px 7px 1px;margin-left:8px}
+
+  .more{text-align:center;font-family:'IBM Plex Mono',monospace;
+    font-size:9.5px;letter-spacing:.3em;color:var(--title);opacity:.75;cursor:pointer;
+    margin:-2px 0 2px;text-shadow:0 1px 4px rgba(255,255,255,.65)}
+  .more:hover{color:var(--accent);opacity:1}
+
+  #pl-gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .g-item{position:relative;aspect-ratio:1/1;border-radius:12px;overflow:hidden;
+    border:1px solid var(--line);display:block}
+  .g-item img{width:100%;height:100%;object-fit:cover;display:block}
+  .g-item .gt{position:absolute;inset:0;display:flex;align-items:flex-end;
+    padding:10px 12px;
+    font-family:'IBM Plex Mono',monospace;font-size:8px;
+    letter-spacing:.2em;color:#fff;
+    background:linear-gradient(rgba(50,123,193,.18), rgba(24,52,96,.5));
+    opacity:0;transition:opacity .25s ease}
+  .g-item:hover .gt{opacity:1}
+
+  footer{
+    max-width:880px;margin:16px auto 0;
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-family:'IBM Plex Mono',monospace;font-size:9px;
+    letter-spacing:.25em;color:var(--title);
+    text-shadow:0 1px 6px rgba(255,255,255,.7)}
+  footer a:hover{color:var(--accent)}
+
+  @media(max-width:720px){
+    .panel{padding:20px 16px;border-radius:20px}
+    .cols{
+      grid-template-columns:0.72fr 1.28fr;gap:16px;
+      grid-template-areas:
+        "pf   search"
+        "pf   cate"
+        "main main"
+        "side side";
+    }
+    .pf-card{aspect-ratio:auto;align-self:stretch;height:auto;min-height:0}
+    .search-card,.cate-card{padding:13px 15px}
+    .label{margin-bottom:7px}
+    .s-cate a{padding:4px 2px;font-size:12px}
+    .s-search{padding:8px 12px}
+    .pf-title{font-size:11.5px}
+    .pf-cap{padding:18px 11px 8px}
+    #pl-gallery{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .tide i{animation:none}
+    .post,.post:hover{transition:none;transform:none}
+    .g-item .gt{transition:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <div class="cols">
+
+    <div class="pf-card">
+      <img src="profile.jpg" alt="profile">
+      <div class="pf-cap">
+        <p class="pf-title">Unpainted Shades of Blue</p>
+      </div>
+    </div>
+
+    <div class="box search-card">
+      <p class="label">SEARCH</p>
+      <div class="s-search">
+        <span class="ic">⌕</span>
+        <input type="text" id="pl-search" placeholder="search">
+      </div>
+    </div>
+
+    <div class="box cate-card">
+      <p class="label">CATEGORY</p>
+      <ul class="s-cate">
+        <li><a data-cat="archive"><span>archive</span><span class="n" data-count="archive">0</span></a></li>
+        <li><a data-cat="ooc"><span>ooc</span><span class="n" data-count="ooc">0</span></a></li>
+        <li><a data-cat="all"><span>전체</span><span class="n" data-count="all">0</span></a></li>
+      </ul>
+    </div>
+
+    <aside>
+      <div class="box tide-card">
+        <p class="label">TIDE</p>
+        <span class="tide"><i></i>CALM</span>
+        <p>마지막 기록 <span id="pl-last">—</span><br>보관 기록 <span data-count="all">0</span>건</p>
+      </div>
+    </aside>
+
+    <main>
+      <p class="sec-label" id="pl-view-label">RECENT</p>
+      <div id="pl-pinned"></div>
+      <div id="pl-list"></div>
+      <a class="more" data-cat="all">DIVE →</a>
+
+      <p class="sec-label">GALLERY</p>
+      <div id="pl-gallery"></div>
+    </main>
+
+  </div>
+</div>
+
+<footer>
+  <a href="../">← HOME</a>
+  <span>ⓒ FORJ-FROMS · /BLUE/</span>
+</footer>
+
+<script>
+window.PL_CONFIG = {
+  owner:'forj-froms',
+  repo:'puppyloversclub',
+  branch:'main',
+  base:'blue'
+};
+window.PL_TEMPLATES = {
+  pinned: p => `
+    <a class="post box pinned" onclick="PL.openPost('${p.id}');return false">
+      <div class="pin-row">
+        <p class="t">${p.title}${p.secret?'<span class="secret">SEALED</span>':''}</p>
+        <span class="pin-tag">ANCHORED</span>
+      </div>
+      <p class="ex">${p.excerpt||''}</p>
+      <div class="meta"><span>${p.cat}</span><span>${p.date}</span></div>
+    </a>`,
+  list: p => `
+    <a class="post box" onclick="PL.openPost('${p.id}');return false">
+      <p class="t">${p.title}${p.secret?'<span class="secret">SEALED</span>':''}</p>
+      ${p.excerpt?`<p class="ex">${p.excerpt}</p>`:''}
+      <div class="meta"><span>${p.cat}</span><span>${p.date}</span></div>
+    </a>`,
+  gallery: g => `
+    <a class="g-item" href="${g.file}" target="_blank" rel="noopener">
+      <img src="${g.file}" alt="">
+      <span class="gt">${g.title||''}</span>
+    </a>`
+};
+</script>
+<script src="../assets/engine.js"></script>
+</body>
+</html>

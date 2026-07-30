@@ -13,7 +13,13 @@ const enc = new TextEncoder(), dec = new TextDecoder();
 const state = { data:null, view:'recent', q:'', current:null, editId:null };
 
 /* ---------- 유틸 ---------- */
-const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const b64 = buf => {
+  const bytes = new Uint8Array(buf.buffer || buf); let bin = '';
+  const CH = 0x8000;
+  for(let i=0; i<bytes.length; i+=CH)
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i+CH));
+  return btoa(bin);
+};
 const unb64 = s => Uint8Array.from(atob(s), c=>c.charCodeAt(0));
 const b64utf8 = str => { // 유니코드 안전 base64 (깃허브 업로드용)
   const bytes = enc.encode(str); let bin='';
@@ -68,6 +74,25 @@ async function api(path, method, bodyObj){
   return r.json();
 }
 /* 대용량 파일: blob → tree → commit → ref (화물 전용 통로) */
+async function gitDeletePath(path, message){
+  for(let i=0;i<3;i++){
+    try{
+      const ref    = await api('/git/ref/heads/'+C.branch);
+      const head   = ref.object.sha;
+      const commit = await api('/git/commits/'+head);
+      const tree   = await api('/git/trees','POST',{
+        base_tree: commit.tree.sha,
+        tree:[{path, mode:'100644', type:'blob', sha:null}]
+      });
+      const newC   = await api('/git/commits','POST',{message, tree:tree.sha, parents:[head]});
+      await api('/git/refs/heads/'+C.branch,'PATCH',{sha:newC.sha});
+      return {ok:true};
+    }catch(e){
+      if(i===2) throw new Error('파일 삭제 실패 — 잠시 후 다시 시도해 주세요');
+      await new Promise(res=>setTimeout(res, 900*(i+1)));
+    }
+  }
+}
 async function putLarge(path, contentB64, message){
   const blob = await api('/git/blobs','POST',{content:contentB64, encoding:'base64'});
   for(let i=0;i<3;i++){
@@ -113,6 +138,7 @@ const P = p => C.base + '/' + p; // 저장소 내 경로
 async function loadData(){
   const r = await fetch('data.json?t='+Date.now());
   state.data = await r.json();
+  (state.data.posts||[]).forEach(p=>{ if(p.raw || p.src) p.excerpt=''; });
 }
 async function saveData(msg){
   await putFile(P('data.json'), b64utf8(JSON.stringify(state.data, null, 2)), msg);
@@ -299,14 +325,7 @@ async function publishCore({title, cat, secret, pw, pinned, bodyHTML, srcName, r
   const content = secret ? await encrypt(pw, bodyHTML) : bodyHTML;
   await putFile(P(fname), b64utf8(content), (editing?'edit: ':'post: ')+title);
   if(old && old.file !== fname){
-    try{ // 비밀글 여부가 바뀌면 옛 파일 정리
-      const cur = await gh(P(old.file), {method:'GET'});
-      if(cur && cur.sha) await fetch('https://api.github.com/repos/'+C.owner+'/'+C.repo+'/contents/'+P(old.file), {
-        method:'DELETE',
-        headers:{'Authorization':'Bearer '+token.get(),'Accept':'application/vnd.github+json'},
-        body:JSON.stringify({message:'cleanup: '+title, sha:cur.sha, branch:C.branch})
-      });
-    }catch(e){}
+    try{ await gitDeletePath(P(old.file), 'cleanup: '+title); }catch(e){}
   }
   if(pinned) state.data.posts.forEach(p=>p.pinned=false);
   const isRaw = raw!==undefined ? !!raw : !!(old && old.raw);
@@ -399,15 +418,8 @@ async function deletePost(){
   if(!token.get()){ alert('삭제하려면 ✎ → 설정에서 토큰을 먼저 등록하세요.'); return; }
   if(!confirm('「'+p.title+'」 글을 삭제할까요? 되돌릴 수 없어요.')) return;
   try{
-    const cur = await gh(P(p.file), {method:'GET'}).catch(()=>null);
-    if(cur && cur.sha){
-      const r = await fetch('https://api.github.com/repos/'+C.owner+'/'+C.repo+'/contents/'+P(p.file), {
-        method:'DELETE',
-        headers:{'Authorization':'Bearer '+token.get(),'Accept':'application/vnd.github+json'},
-        body:JSON.stringify({message:'delete: '+p.title, sha:cur.sha, branch:C.branch})
-      });
-      if(!r.ok) throw new Error('삭제 실패 ('+r.status+')');
-    }
+    try{ await gitDeletePath(P(p.file), 'delete: '+p.title); }
+    catch(e){ /* 파일이 이미 없거나 삭제 실패해도 목록 정리는 계속 */ }
     state.data.posts = state.data.posts.filter(x=>x.id!==p.id);
     await saveData('index: delete '+p.title);
     alert('삭제했어요. 목록으로 돌아갈게요. (사이트 반영까지 30초~1분)');
@@ -448,6 +460,11 @@ async function initPostPage(){
   try{
     if(isRaw && !p.secret){
       curBody = null;
+      const chk = await fetch(p.file+'?t='+Date.now());
+      if(!chk.ok){
+        if(body) body.innerHTML = '<p>로그 파일을 찾을 수 없어요. 방금 올렸다면 1~2분 뒤 새로고침, 이미 지운 파일이라면 아래 🗑 삭제로 목록에서 정리해 주세요.</p>';
+        return;
+      }
       if(body) body.innerHTML = '';
       mountFrame(body, {src: p.file+'?t='+Date.now()});
       return;

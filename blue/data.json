@@ -9,6 +9,18 @@
       "pinned": true,
       "excerpt": "기본 설정과 관계 요약. 처음이라면 여기부터.",
       "file": "posts/0001.html"
+    },
+    {
+      "id": "ms7ay8yh",
+      "title": "하트 뿅뿅 사건",
+      "cat": "ooc",
+      "date": "2026.07.30",
+      "secret": false,
+      "pinned": false,
+      "raw": true,
+      "excerpt": "",
+      "file": "posts/ms7ay8yh.html",
+      "src": "excerpt_BLUE_01.html"
     }
   ],
   "gallery": [

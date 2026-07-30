@@ -279,8 +279,8 @@ window.PL_TEMPLATES = {
       <span class="sig">${p.secret?'▂▄▆█':'▂▄▆_'}</span>
     </a></li>`,
   gallery: g => `
-    <a class="frame" href="${g.file}" target="_blank" rel="noopener">
-      <img src="${g.file}" alt="">
+    <a class="frame" href="#" data-file="${g.file}" data-title="${(g.title||'').replace(/"/g,'&quot;')}">
+      <img src="${g.file}" alt="" draggable="false">
       <span class="gt">${g.title||''}</span>
     </a>`
 };

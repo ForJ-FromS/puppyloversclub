@@ -272,8 +272,8 @@ window.PL_TEMPLATES = {
       <div class="meta"><span>${p.cat}</span><span>${p.date}</span></div>
     </a>`,
   gallery: g => `
-    <a class="g-item" href="${g.file}" target="_blank" rel="noopener">
-      <img src="${g.file}" alt="">
+    <a class="g-item" href="#" data-file="${g.file}" data-title="${(g.title||'').replace(/"/g,'&quot;')}">
+      <img src="${g.file}" alt="" draggable="false">
       <span class="gt">${g.title||''}</span>
     </a>`
 };

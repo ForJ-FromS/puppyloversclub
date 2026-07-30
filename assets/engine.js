@@ -140,6 +140,16 @@ async function loadData(){
   state.data = await r.json();
   (state.data.posts||[]).forEach(p=>{ if(p.raw || p.src) p.excerpt=''; });
 }
+/* 발행/삭제 직전엔 반드시 저장소 원본에서 최신 목차를 읽는다
+   (사이트 반영 지연 중의 옛 목차 위에 덮어써서 글이 증발하는 사고 방지) */
+async function loadDataAPI(){
+  const cur = await gh(P('data.json'), {method:'GET'});
+  if(!cur || !cur.content) throw new Error('index');
+  state.data = JSON.parse(dec.decode(unb64(cur.content.replace(/\s/g,''))));
+  state.data.posts = state.data.posts||[];
+  state.data.gallery = state.data.gallery||[];
+  state.data.posts.forEach(p=>{ if(p.raw || p.src) p.excerpt=''; });
+}
 async function saveData(msg){
   await putFile(P('data.json'), b64utf8(JSON.stringify(state.data, null, 2)), msg);
 }
@@ -168,6 +178,13 @@ function render(){
     const arr = state.view==='gallery' ? gi : gi.slice(0,6);
     g.innerHTML = arr.length ? arr.map(T.gallery).join('')
                              : '<p class="pl-empty">아직 이미지가 없습니다.</p>';
+    g.querySelectorAll('[data-file]').forEach(el=>{
+      el.addEventListener('click', ev=>{
+        ev.preventDefault();
+        openImage(el.dataset.file, el.dataset.title||'');
+      });
+      const im = el.querySelector('img'); if(im) im.setAttribute('draggable','false');
+    });
   }
   // 카운트/상태
   document.querySelectorAll('[data-count]').forEach(el=>{
@@ -215,6 +232,15 @@ function adminHTML(){ return `
     <button id="pl-del" onclick="PL.deletePost()">🗑 삭제</button>
   </div>
 </div></div>
+
+<div id="pl-lb" onclick="PL.closeImage(event)">
+  <figure>
+    <img id="pl-lb-img" draggable="false" alt="">
+    <span class="pl-lb-shield"></span>
+  </figure>
+  <p id="pl-lb-t"></p>
+  <button class="pl-x" onclick="PL.closeImage()">✕</button>
+</div>
 
 <button id="pl-pen" title="글쓰기" onclick="PL.togglePanel()">✎</button>
 
@@ -297,6 +323,16 @@ function adminCSS(){ return `
 .pl-help{font-size:12px;opacity:.75;margin-bottom:10px;line-height:1.7}
 #pl-msg{margin-top:10px;font-size:12px;opacity:.85}
 .pl-empty{font-size:12.5px;opacity:.6;padding:8px 4px}
+#pl-lb{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+  flex-direction:column;gap:12px;background:rgba(8,10,14,.88);z-index:80;padding:26px}
+#pl-lb.show{display:flex}
+#pl-lb figure{position:relative;max-width:min(1000px,94vw);max-height:82vh;margin:0}
+#pl-lb img{max-width:100%;max-height:82vh;border-radius:10px;display:block;
+  user-select:none;-webkit-user-drag:none;pointer-events:none}
+.pl-lb-shield{position:absolute;inset:0}
+#pl-lb-t{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.15em;
+  color:rgba(255,255,255,.75)}
+#pl-lb .pl-x{position:fixed;top:18px;right:22px;color:#fff;font-size:18px;opacity:.85}
 .pl-v-meta{font-size:11px;opacity:.6;letter-spacing:.08em}
 .pl-v-title{margin:4px 0 14px;font-size:19px}
 .pl-v-body{font-size:14px;line-height:2;white-space:normal}
@@ -318,6 +354,8 @@ async function publishCore({title, cat, secret, pw, pinned, bodyHTML, srcName, r
   if(!title){ msg('제목을 입력하세요.'); return; }
   if(secret && !pw){ msg('비밀글 비밀번호를 입력하세요.'); return; }
   msg(state.editId ? '수정 저장 중...' : '발행 중...');
+  try{ await loadDataAPI(); }
+  catch(e){ msg('목차(data.json)를 불러오지 못해 중단했어요 — 글이 사라지는 걸 막기 위해서예요. 잠시 후 다시 시도해 주세요.'); return; }
   const editing = state.editId;
   const old = editing ? state.data.posts.find(x=>x.id===editing) : null;
   const id = editing || newId();
@@ -371,6 +409,8 @@ async function publishImage(){
   const f = $('#pl-img-file').files[0];
   if(!f){ msg('이미지를 선택하세요.'); return; }
   msg('업로드 중...');
+  try{ await loadDataAPI(); }
+  catch(e){ msg('목차(data.json)를 불러오지 못해 중단했어요. 잠시 후 다시 시도해 주세요.'); return; }
   const buf = await f.arrayBuffer();
   const name = 'gallery/'+Date.now().toString(36)+'-'+f.name.replace(/[^a-zA-Z0-9._-]/g,'');
   await putFile(P(name), b64(buf), 'gallery: '+f.name).catch(e=>{msg('오류: '+e.message);throw e;});
@@ -418,6 +458,8 @@ async function deletePost(){
   if(!token.get()){ alert('삭제하려면 ✎ → 설정에서 토큰을 먼저 등록하세요.'); return; }
   if(!confirm('「'+p.title+'」 글을 삭제할까요? 되돌릴 수 없어요.')) return;
   try{
+    try{ await loadDataAPI(); }
+    catch(e){ alert('목차(data.json)를 불러오지 못해 중단했어요. 잠시 후 다시 시도해 주세요.'); return; }
     try{ await gitDeletePath(P(p.file), 'delete: '+p.title); }
     catch(e){ /* 파일이 이미 없거나 삭제 실패해도 목록 정리는 계속 */ }
     state.data.posts = state.data.posts.filter(x=>x.id!==p.id);
@@ -489,6 +531,13 @@ function bind(){
   document.body.insertAdjacentHTML('beforeend', adminHTML());
   const st = document.createElement('style'); st.textContent = adminCSS();
   document.head.appendChild(st);
+  // ✎ 버튼은 관리자(토큰 보유)에게만 — 새 기기에서는 주소 뒤에 ?admin 붙여 접속하면 표시
+  if(!token.get() && !/[?#&]admin/.test(location.search + location.hash)){
+    const pen = $('#pl-pen'); if(pen) pen.style.display = 'none';
+  }
+  document.addEventListener('contextmenu', e=>{
+    if(e.target.closest && (e.target.closest('#pl-lb') || e.target.closest('#pl-gallery'))) e.preventDefault();
+  });
   $('#pl-secret').addEventListener('change', e=>$('#pl-pw').style.display = e.target.checked?'':'none');
   $('#pl-log-secret').addEventListener('change', e=>$('#pl-log-pw').style.display = e.target.checked?'':'none');
   document.querySelectorAll('.pl-tabs button').forEach(b=>b.addEventListener('click',()=>{
@@ -506,7 +555,19 @@ function bind(){
 }
 function togglePanel(){ $('#pl-panel').classList.toggle('show'); }
 
-window.PL = { openPost, closeViewer, togglePanel, publish, publishLog, publishImage, saveToken, copyLink, deletePost, editPost };
+/* ---------- 갤러리 라이트박스 ---------- */
+function openImage(file, title){
+  const lb = $('#pl-lb'); if(!lb) return;
+  $('#pl-lb-img').src = file;
+  $('#pl-lb-t').textContent = title || '';
+  lb.classList.add('show');
+}
+function closeImage(e){
+  if(e && e.target && (e.target.id==='pl-lb-img' || e.target.classList.contains('pl-lb-shield'))) return;
+  const lb = $('#pl-lb'); if(lb) lb.classList.remove('show');
+}
+
+window.PL = { openPost, closeViewer, togglePanel, publish, publishLog, publishImage, saveToken, copyLink, deletePost, editPost, openImage, closeImage };
 document.addEventListener('DOMContentLoaded', async ()=>{
   bind();
   if(window.PL_PAGE==='post'){ initPostPage(); return; }

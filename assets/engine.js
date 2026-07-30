@@ -10,7 +10,7 @@ const T = window.PL_TEMPLATES;       // {list(post), pinned(post), gallery(item)
 const $ = s => document.querySelector(s);
 const enc = new TextEncoder(), dec = new TextDecoder();
 
-const state = { data:null, view:'recent', q:'', current:null };
+const state = { data:null, view:'recent', q:'', current:null, editId:null };
 
 /* ---------- 유틸 ---------- */
 const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -59,16 +59,22 @@ async function gh(path, opt={}){
   return r.status===404 ? null : r.json();
 }
 async function putFile(path, contentB64, msg){
-  const cur = await gh(path, {method:'GET'}).catch(()=>null);
-  const body = {message:msg, content:contentB64, branch:C.branch};
-  if(cur && cur.sha) body.sha = cur.sha;
-  const r = await fetch('https://api.github.com/repos/'+C.owner+'/'+C.repo+'/contents/'+path, {
-    method:'PUT',
-    headers:{'Authorization':'Bearer '+token.get(),'Accept':'application/vnd.github+json'},
-    body: JSON.stringify(body)
-  });
-  if(!r.ok) throw new Error('업로드 실패 ('+r.status+')');
-  return r.json();
+  let lastStatus = 0;
+  for(let i=0; i<3; i++){
+    const cur = await gh(path, {method:'GET'}).catch(()=>null);
+    const body = {message:msg, content:contentB64, branch:C.branch};
+    if(cur && cur.sha) body.sha = cur.sha;
+    const r = await fetch('https://api.github.com/repos/'+C.owner+'/'+C.repo+'/contents/'+path, {
+      method:'PUT',
+      headers:{'Authorization':'Bearer '+token.get(),'Accept':'application/vnd.github+json'},
+      body: JSON.stringify(body)
+    });
+    if(r.ok) return r.json();
+    lastStatus = r.status;
+    if(r.status!==409) throw new Error('업로드 실패 ('+r.status+')');
+    await new Promise(res=>setTimeout(res, 900*(i+1)));   // 충돌 → 잠시 후 재시도
+  }
+  throw new Error('업로드 실패 ('+lastStatus+') — 잠시 후 다시 시도해 주세요');
 }
 const P = p => C.base + '/' + p; // 저장소 내 경로
 
@@ -87,21 +93,24 @@ function render(){
   const listEl = $('#pl-list'), pinEl = $('#pl-pinned');
   if(!listEl) return;
   let items = posts();
-  if(state.view!=='recent' && state.view!=='all') items = items.filter(p=>p.cat===state.view);
+  if(state.view!=='recent' && state.view!=='all' && state.view!=='gallery')
+    items = items.filter(p=>p.cat===state.view);
   if(state.q) items = items.filter(p=>p.title.toLowerCase().includes(state.q));
   const pinned = items.find(p=>p.pinned);
   const rest = items.filter(p=>!p.pinned);
   if(pinEl) pinEl.innerHTML = (state.view==='recent' && !state.q && pinned) ? T.pinned(pinned) : '';
   const shown = state.view==='recent' && !state.q ? rest.slice(0,5) : rest;
-  listEl.innerHTML = shown.length
-    ? shown.map(T.list).join('')
-    : '<p class="pl-empty">아직 글이 없습니다.</p>';
-  // 갤러리
+  listEl.innerHTML = state.view==='gallery' ? ''
+    : shown.length
+      ? shown.map(T.list).join('')
+      : '<p class="pl-empty">아직 글이 없습니다.</p>';
+  // 갤러리 (gallery 뷰에서는 전체 표시)
   const g = $('#pl-gallery');
   if(g){
-    const gi = state.data.gallery||[];
-    g.innerHTML = gi.length ? gi.slice().reverse().slice(0,6).map(T.gallery).join('')
-                            : '<p class="pl-empty">아직 이미지가 없습니다.</p>';
+    const gi = (state.data.gallery||[]).slice().reverse();
+    const arr = state.view==='gallery' ? gi : gi.slice(0,6);
+    g.innerHTML = arr.length ? arr.map(T.gallery).join('')
+                             : '<p class="pl-empty">아직 이미지가 없습니다.</p>';
   }
   // 카운트/상태
   document.querySelectorAll('[data-count]').forEach(el=>{
@@ -113,7 +122,8 @@ function render(){
   const last = $('#pl-last'); if(last && posts()[0]) last.textContent = posts()[0].date;
   const secHead = $('#pl-view-label');
   if(secHead) secHead.textContent = state.view==='recent' ? 'RECENT'
-    : state.view==='all' ? 'ALL POSTS' : state.view.toUpperCase();
+    : state.view==='all' ? 'ALL POSTS'
+    : state.view==='gallery' ? 'GALLERY' : state.view.toUpperCase();
   document.querySelectorAll('[data-cat]').forEach(a=>{
     a.classList.toggle('on', a.dataset.cat===state.view);
   });
@@ -175,6 +185,7 @@ function adminHTML(){ return `
   <div class="pl-tab" data-pane="log" style="display:none">
     <input id="pl-log-title" placeholder="로그 제목">
     <div class="pl-row">
+      <select id="pl-log-cat"><option>ooc</option><option>archive</option></select>
       <label class="pl-chk"><input type="checkbox" id="pl-log-secret"> 비밀글</label>
       <input id="pl-log-pw" placeholder="비밀번호" style="display:none">
     </div>
@@ -249,19 +260,36 @@ async function publishCore({title, cat, secret, pw, pinned, bodyHTML, srcName}){
   if(!token.get()){ msg('먼저 [설정] 탭에서 토큰을 등록하세요.'); return; }
   if(!title){ msg('제목을 입력하세요.'); return; }
   if(secret && !pw){ msg('비밀글 비밀번호를 입력하세요.'); return; }
-  msg('발행 중...');
-  const id = newId();
+  msg(state.editId ? '수정 저장 중...' : '발행 중...');
+  const editing = state.editId;
+  const old = editing ? state.data.posts.find(x=>x.id===editing) : null;
+  const id = editing || newId();
   const fname = 'posts/'+id + (secret?'.enc':'.html');
   const content = secret ? await encrypt(pw, bodyHTML) : bodyHTML;
-  await putFile(P(fname), b64utf8(content), 'post: '+title);
+  await putFile(P(fname), b64utf8(content), (editing?'edit: ':'post: ')+title);
+  if(old && old.file !== fname){
+    try{ // 비밀글 여부가 바뀌면 옛 파일 정리
+      const cur = await gh(P(old.file), {method:'GET'});
+      if(cur && cur.sha) await fetch('https://api.github.com/repos/'+C.owner+'/'+C.repo+'/contents/'+P(old.file), {
+        method:'DELETE',
+        headers:{'Authorization':'Bearer '+token.get(),'Accept':'application/vnd.github+json'},
+        body:JSON.stringify({message:'cleanup: '+title, sha:cur.sha, branch:C.branch})
+      });
+    }catch(e){}
+  }
   if(pinned) state.data.posts.forEach(p=>p.pinned=false);
-  state.data.posts.push({
-    id, title, cat, date:today(), secret:!!secret, pinned:!!pinned,
-    excerpt: secret ? '' : dec.decode(enc.encode(bodyHTML.replace(/<[^>]+>/g,' '))).trim().slice(0,80),
-    file:fname, src:srcName||''
-  });
+  const entry = {
+    id, title, cat, date: old ? old.date : today(), secret:!!secret, pinned:!!pinned,
+    excerpt: secret ? '' : bodyHTML.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,80),
+    file:fname, src: srcName || (old && old.src) || ''
+  };
+  if(old) state.data.posts = state.data.posts.map(x=>x.id===id ? entry : x);
+  else state.data.posts.push(entry);
   await saveData('index: '+title);
-  msg('발행 완료! 사이트 반영까지 30초~1분 걸려요.');
+  state.editId = null;
+  const btn = document.querySelector('[data-pane="post"] .pl-go');
+  if(btn) btn.textContent = '발행';
+  msg(editing ? '수정 완료! 사이트 반영까지 30초~1분.' : '발행 완료! 사이트 반영까지 30초~1분 걸려요.');
   render();
 }
 async function publish(){
@@ -275,11 +303,12 @@ async function publish(){
 async function publishLog(){
   const f = $('#pl-log-file').files[0];
   if(!f){ msg('로그 파일을 선택하세요.'); return; }
+  if(f.size > 20*1024*1024){ msg('파일이 20MB를 넘어요 — 이미지가 많은 로그라면 이미지를 갤러리로 나눠 올려주세요.'); return; }
   const text = await f.text();
   const secret = $('#pl-log-secret').checked;
   await publishCore({
     title: $('#pl-log-title').value.trim() || f.name.replace(/\.[^.]+$/,''),
-    cat:'ooc', secret, pw:$('#pl-log-pw').value, pinned:false,
+    cat: $('#pl-log-cat').value, secret, pw:$('#pl-log-pw').value, pinned:false,
     bodyHTML:text, srcName:f.name
   }).catch(e=>msg('오류: '+e.message));
 }
@@ -299,7 +328,30 @@ async function publishImage(){
 function saveToken(){ token.set($('#pl-token').value.trim()); msg('토큰 저장 완료. 이제 발행할 수 있어요.'); }
 
 /* ---------- 글 페이지(post.html) ---------- */
-let curPost = null;
+let curPost = null, curBody = null;
+function htmlToText(html){
+  const d = document.createElement('div');
+  d.innerHTML = String(html).replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n\n');
+  return d.textContent.replace(/\n{3,}/g,'\n\n').trim();
+}
+function editPost(){
+  const p = curPost; if(!p) return;
+  if(!token.get()){ alert('수정하려면 ✎ → 설정에서 토큰을 먼저 등록하세요.'); return; }
+  if(curBody===null){ alert('비밀글은 비밀번호로 연 뒤에 수정할 수 있어요.\n새로고침해서 비밀번호를 입력해 주세요.'); return; }
+  state.editId = p.id;
+  $('#pl-title').value = p.title;
+  $('#pl-cat').value = p.cat;
+  $('#pl-pin').checked = !!p.pinned;
+  $('#pl-secret').checked = !!p.secret;
+  $('#pl-pw').style.display = p.secret ? '' : 'none';
+  $('#pl-pw').value = '';
+  $('#pl-body').value = htmlToText(curBody);
+  const btn = document.querySelector('[data-pane="post"] .pl-go');
+  if(btn) btn.textContent = '수정 저장';
+  document.querySelector('.pl-tabs button[data-tab="post"]').click();
+  $('#pl-panel').classList.add('show');
+  if(p.secret) msg('비밀글 수정: 저장할 때 비밀번호를 다시 입력해 주세요.');
+}
 function copyLink(){
   const url = location.href;
   const done = ()=>alert('링크를 복사했어요!\n'+url);
@@ -343,8 +395,10 @@ async function initPostPage(){
   document.title = p.title;
   if(meta) meta.textContent = p.cat+' · '+p.date+(p.secret?' · SECRET':'');
   const del=$('#pp-del'); if(del && !token.get()) del.style.display='none';
+  const ed=$('#pp-edit'); if(ed && !token.get()) ed.style.display='none';
   try{
     const html = await loadPostBody(p);
+    curBody = html;
     if(body) body.innerHTML = html===null
       ? '<p>비밀글입니다. 새로고침하면 비밀번호를 다시 입력할 수 있어요.</p>'
       : html;
@@ -375,7 +429,7 @@ function bind(){
 }
 function togglePanel(){ $('#pl-panel').classList.toggle('show'); }
 
-window.PL = { openPost, closeViewer, togglePanel, publish, publishLog, publishImage, saveToken, copyLink, deletePost };
+window.PL = { openPost, closeViewer, togglePanel, publish, publishLog, publishImage, saveToken, copyLink, deletePost, editPost };
 document.addEventListener('DOMContentLoaded', async ()=>{
   bind();
   if(window.PL_PAGE==='post'){ initPostPage(); return; }

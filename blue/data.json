@@ -9,6 +9,30 @@
       "pinned": true,
       "excerpt": "기본 설정과 관계 요약. 처음이라면 여기부터.",
       "file": "posts/0001.html"
+    },
+    {
+      "id": "ms7ay8yh",
+      "title": "하트 뿅뿅 사건",
+      "cat": "ooc",
+      "date": "2026.07.30",
+      "secret": false,
+      "pinned": false,
+      "raw": true,
+      "excerpt": "",
+      "file": "posts/ms7ay8yh.html",
+      "src": "excerpt_BLUE_01.html"
+    },
+    {
+      "id": "ms7cknb6",
+      "title": "하트 뿅뿅 사건",
+      "cat": "ooc",
+      "date": "2026.07.30",
+      "secret": false,
+      "pinned": false,
+      "raw": false,
+      "excerpt": "[OOC: 현재 RP 중단. 새로운 에피소드를 시작한다. 어느 날 PC의 머리에서 뿅 하고 하트가 날아간다. 그 뒤로도 NPC가 무언가를 할 때",
+      "file": "posts/ms7cknb6.html",
+      "src": ""
     }
   ],
   "gallery": [

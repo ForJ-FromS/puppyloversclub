@@ -58,7 +58,38 @@ async function gh(path, opt={}){
   if(!r.ok && r.status!==404) throw new Error('GitHub API '+r.status);
   return r.status===404 ? null : r.json();
 }
+async function api(path, method, bodyObj){
+  const r = await fetch('https://api.github.com/repos/'+C.owner+'/'+C.repo+path, {
+    method: method||'GET',
+    headers:{'Authorization':'Bearer '+token.get(),'Accept':'application/vnd.github+json'},
+    body: bodyObj ? JSON.stringify(bodyObj) : undefined
+  });
+  if(!r.ok) throw new Error('API '+r.status);
+  return r.json();
+}
+/* 대용량 파일: blob → tree → commit → ref (화물 전용 통로) */
+async function putLarge(path, contentB64, message){
+  const blob = await api('/git/blobs','POST',{content:contentB64, encoding:'base64'});
+  for(let i=0;i<3;i++){
+    try{
+      const ref    = await api('/git/ref/heads/'+C.branch);
+      const head   = ref.object.sha;
+      const commit = await api('/git/commits/'+head);
+      const tree   = await api('/git/trees','POST',{
+        base_tree: commit.tree.sha,
+        tree:[{path, mode:'100644', type:'blob', sha: blob.sha}]
+      });
+      const newC   = await api('/git/commits','POST',{message, tree:tree.sha, parents:[head]});
+      await api('/git/refs/heads/'+C.branch,'PATCH',{sha:newC.sha});
+      return {ok:true};
+    }catch(e){
+      if(i===2) throw new Error('대용량 업로드 실패 — 잠시 후 다시 시도해 주세요');
+      await new Promise(res=>setTimeout(res, 900*(i+1)));
+    }
+  }
+}
 async function putFile(path, contentB64, msg){
+  if(contentB64.length > 900000) return putLarge(path, contentB64, msg); // ~0.7MB 이상은 화물 통로
   let lastStatus = 0;
   for(let i=0; i<3; i++){
     const cur = await gh(path, {method:'GET'}).catch(()=>null);
@@ -72,9 +103,9 @@ async function putFile(path, contentB64, msg){
     if(r.ok) return r.json();
     lastStatus = r.status;
     if(r.status!==409) throw new Error('업로드 실패 ('+r.status+')');
-    await new Promise(res=>setTimeout(res, 900*(i+1)));   // 충돌 → 잠시 후 재시도
+    await new Promise(res=>setTimeout(res, 900*(i+1)));
   }
-  throw new Error('업로드 실패 ('+lastStatus+') — 잠시 후 다시 시도해 주세요');
+  return putLarge(path, contentB64, msg);  // 일반 통로가 계속 막히면 화물 통로로 폴백
 }
 const P = p => C.base + '/' + p; // 저장소 내 경로
 

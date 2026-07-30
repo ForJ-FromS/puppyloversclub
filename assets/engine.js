@@ -465,7 +465,7 @@ function editPost(){
 function copyLink(){
   const p = curPost;
   const url = p
-    ? location.origin + location.pathname.replace(/post\.html.*$/,'') + p.id
+    ? location.origin + '/' + C.base + '/' + p.id
     : location.href;
   const done = ()=>alert('링크를 복사했어요!\n'+url);
   if(navigator.clipboard) navigator.clipboard.writeText(url).then(done)

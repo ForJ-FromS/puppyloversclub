@@ -33,6 +33,18 @@
       "excerpt": "[OOC: 현재 RP 중단. 새로운 에피소드를 시작한다. 어느 날 NPC의 머리에서 뿅 하고 하트가 날아간다. 그 뒤로도 PC가 무언가를 할 때",
       "file": "posts/0002.html",
       "src": ""
+    },
+    {
+      "id": "0003",
+      "title": "사주팔자는 다 구라야",
+      "cat": "ooc",
+      "date": "2026.08.01",
+      "secret": false,
+      "pinned": false,
+      "raw": false,
+      "excerpt": "OOC: 잠시 롤플 중단. 새 에피소드 시작. 평화로운 어느날, PC의 강력한 요청으로 사주를 보러 간 NPC와 PC. NPC는 평소 사주팔자에",
+      "file": "posts/0003.html",
+      "src": ""
     }
   ],
   "gallery": [

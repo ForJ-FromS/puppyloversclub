@@ -45,6 +45,18 @@
       "excerpt": "OOC: 잠시 롤플 중단. 새 에피소드 시작. 평화로운 어느날, PC의 강력한 요청으로 사주를 보러 간 NPC와 PC. NPC는 평소 사주팔자에",
       "file": "posts/0003.html",
       "src": ""
+    },
+    {
+      "id": "0004",
+      "title": "너무너무 강아지 같으시다",
+      "cat": "ooc",
+      "date": "2026.08.02",
+      "secret": false,
+      "pinned": false,
+      "raw": false,
+      "excerpt": "[ooc: 기존 롤플레잉 중단. 새 에피소드 진행. 어느날 PC는 한가지 느꼈다. NPC... 뭔가 대형 강아지 같다. 왕크왕귀(왕 크니까 왕 ",
+      "file": "posts/0004.html",
+      "src": ""
     }
   ],
   "gallery": [

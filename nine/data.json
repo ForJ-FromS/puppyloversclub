@@ -105,6 +105,18 @@
       "excerpt": "OOC: 이전 롤플레잉 중지. 새로운 에피소드 시작. 시간이 빠르게 흘러 어느 날, 두 사람은 제법 큰 싸움을 했다. 말싸움이 오고가다가, PC",
       "file": "posts/0008.html",
       "src": ""
+    },
+    {
+      "id": "0009",
+      "title": "질투유발의 클리셰",
+      "cat": "ooc",
+      "date": "2026.08.03",
+      "secret": false,
+      "pinned": false,
+      "raw": false,
+      "excerpt": "[OOC: 잠시 현재의 롤플레잉을 중단한다. 어느 날 거리를 걷던 PC와 NPC. NPC가 잠깐 자리를 비운 사이, 어떤 여자(or 남자)가 다",
+      "file": "posts/0009.html",
+      "src": ""
     }
   ],
   "gallery": [
